@@ -3,7 +3,7 @@
 
 [![tests](https://github.com/egoriye/cn-gambling-discourse/actions/workflows/ci.yml/badge.svg)](https://github.com/egoriye/cn-gambling-discourse/actions)
 
-**A measurement toolkit for gambling discourse in Chinese retail-investor texts: seed lexicon → negation-aware scoring → weakly-supervised classifier → daily Gambling Discourse Index (GDI).**
+**A measurement toolkit for gambling discourse in Chinese retail-investor texts: seed lexicon, negation-aware scoring, weakly-supervised classifier, daily Gambling Discourse Index (GDI).**
 
 A lightweight NLP toolkit that measures the density of gambling-related vocabulary in Chinese-language financial texts (stock-forum posts, investor comments, news). It operationalises findings from behavioural-finance research on the Chinese stock market — lottery-like stock preference (the MAX anomaly), the *yi xiao bo da* (以小博大, "small stake, big win") logic, and loss-chasing behaviour — as a reproducible text-analysis pipeline.
 
