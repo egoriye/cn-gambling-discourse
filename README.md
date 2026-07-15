@@ -1,8 +1,9 @@
+[README.md](https://github.com/user-attachments/files/30050686/README.md)
 # cn-gambling-discourse
 
 [![tests](https://github.com/egoriye/cn-gambling-discourse/actions/workflows/ci.yml/badge.svg)](https://github.com/egoriye/cn-gambling-discourse/actions)
 
-**A measurement toolkit for gambling discourse in Chinese retail-investor texts: seed lexicon, negation-aware scoring, weakly-supervised classifier, daily Gambling Discourse Index (GDI).**
+**A measurement toolkit for gambling discourse in Chinese retail-investor texts: seed lexicon → negation-aware scoring → weakly-supervised classifier → daily Gambling Discourse Index (GDI).**
 
 A lightweight NLP toolkit that measures the density of gambling-related vocabulary in Chinese-language financial texts (stock-forum posts, investor comments, news). It operationalises findings from behavioural-finance research on the Chinese stock market — lottery-like stock preference (the MAX anomaly), the *yi xiao bo da* (以小博大, "small stake, big win") logic, and loss-chasing behaviour — as a reproducible text-analysis pipeline.
 
@@ -51,6 +52,11 @@ human review → lexicon v2).
 Index** (gambling hits per 100 tokens per day) — a time series that can be
 laid alongside price and volume data.
 
+## Live demo
+
+Try the browser demo (paste any Chinese text, see highlighted markers and the score):
+**https://egoriye.github.io/cn-gambling-discourse/**
+
 ## Quick start
 
 ```bash
@@ -78,9 +84,9 @@ Input for the CLI is any UTF-8 CSV with a text column (`--text-column`, default 
 
 ## Limitations
 
-- Lexicon matching uses a short rule-based negation window (不 / 没 / 别 / 勿 and derivatives within two tokens); complex negation, irony, and sarcasm are not handled reliably.
+- Pure lexicon matching: negation (不加杠杆 "no leverage") is not handled and inflates scores; a rule-based negation window or a supervised classifier is the natural next step.
 - The lexicon reflects mainland simplified-Chinese investor slang of the 2010s–2020s; coverage of Cantonese and traditional-script communities is limited.
-- Scores are descriptive densities, not calibrated probabilities; the weak-supervision classifier generalises beyond the seed terms but is not yet validated against lottery-sales or market-outcome proxies.
+- Scores are descriptive densities, not calibrated probabilities.
 
 ## Pilot results
 
