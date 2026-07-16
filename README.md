@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/30050686/README.md)
 # cn-gambling-discourse
 
 [![tests](https://github.com/egoriye/cn-gambling-discourse/actions/workflows/ci.yml/badge.svg)](https://github.com/egoriye/cn-gambling-discourse/actions)
