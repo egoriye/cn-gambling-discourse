@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gambling Discourse Analyzer</title>
+<style>
+body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; font-size: 15px;
+       line-height: 1.5; color: #000; background: #fff;
+       max-width: 40em; margin: 2em auto; padding: 0 1em; }
+h1 { font-size: 1.3em; margin: 0 0 .3em; }
+p { margin: .6em 0; }
+textarea { width: 100%; height: 6em; font: inherit; padding: .4em;
+           border: 1px solid #999; }
+button { font: inherit; padding: .3em 1em; margin-top: .5em; }
+hr { border: none; border-top: 1px solid #ccc; margin: 1em 0; }
+.g { background: #ffdddd; }
+.r { background: #ddffdd; }
+.pos { color: #c00; }
+.neg { color: #060; }
+#score { font-size: 1.3em; font-weight: bold; margin: .4em 0; }
+#detail, .note { color: #555; font-size: .9em; }
+#tags { font-size: .9em; }
+#tags span { margin-right: 1em; white-space: nowrap; }
+#out { display: none; }
+</style>
+</head>
+<body>
+
+<h1>Gambling Discourse Analyzer</h1>
+
+<p>Detects gambling-culture vocabulary in Chinese retail-investor texts.
+Browser demo of <a href="https://github.com/egoriye/cn-gambling-discourse">cn-gambling-discourse</a>.
+Substring matching only; the Python package adds jieba segmentation and negation handling.</p>
+
+<p><textarea id="inp">&#20111;&#40635;&#20102;&#65292;&#26126;&#22825;&#28385;&#20179;&#25220;&#24213;&#65292;&#19968;&#23450;&#35201;&#22238;&#26412;&#65281;&#36825;&#21482;&#22934;&#32929;&#35201;&#28072;&#20572;&#65292;&#20197;&#23567;&#21338;&#22823;&#65292;&#36172;&#19968;&#25226;&#65281;</textarea></p>
+
+<p><button onclick="analyze()">Analyze</button></p>
+
+<p class="note">Examples:
+<a href="#" onclick="setT('&#20170;&#22825;&#26797;&#21704;&#20102;&#36825;&#21482;&#22934;&#32929;&#65292;&#19968;&#22812;&#26292;&#23500;&#23601;&#30475;&#26126;&#22825;&#65292;&#20840;&#20179;&#24178;&#65281;');return false">speculator</a> |
+<a href="#" onclick="setT('&#22362;&#25345;&#20215;&#20540;&#25237;&#36164;&#65292;&#38271;&#26399;&#25345;&#26377;&#65292;&#35774;&#22909;&#27490;&#25439;&#65292;&#20998;&#25955;&#37197;&#32622;&#65292;&#31283;&#20581;&#29702;&#24615;&#12290;');return false">value investor</a> |
+<a href="#" onclick="setT('&#39532;&#19978;&#24320;&#22870;&#65292;&#31069;&#24744;&#22909;&#36816;&#65281;');return false">lottery draw</a>
+</p>
+
+<div id="out">
+<hr>
+<p id="rendered"></p>
+<p id="score"></p>
+<p id="detail"></p>
+<p id="tags"></p>
+</div>
+
+<hr>
+<p class="note">Lexicon frequency scoring, in the tradition of dictionary-based
+indices (Baker&ndash;Bloom&ndash;Davis EPU; Loughran&ndash;McDonald).
+Full pipeline &mdash; segmentation, negation window, weakly-supervised
+classifier (CV AUC 0.867), daily index &mdash; in the
+<a href="https://github.com/egoriye/cn-gambling-discourse">Python package</a>.</p>
+
+<script>
+
+const LEXICON = {
+ "GAMBLING_CORE": [
+  "赌博",
+  "赌徒",
+  "赌局",
+  "赌注",
+  "博彩",
+  "彩票",
+  "中奖",
+  "开奖",
+  "赌一把",
+  "赌一波",
+  "押注",
+  "下注",
+  "买彩票",
+  "福利彩票",
+  "体育彩票",
+  "快乐8",
+  "麻将",
+  "打麻将",
+  "抽奖",
+  "六合彩",
+  "小赌怡情"
+ ],
+ "SPECULATION": [
+  "以小博大",
+  "梭哈",
+  "梭了",
+  "全仓",
+  "满仓",
+  "重仓",
+  "加杠杆",
+  "上杠杆",
+  "一夜暴富",
+  "暴富",
+  "翻倍",
+  "十倍股",
+  "搏一搏",
+  "富贵险中求",
+  "单车变摩托",
+  "赌性"
+ ],
+ "LOSS_CHASING": [
+  "回本",
+  "翻身",
+  "扳回",
+  "补仓",
+  "越跌越买",
+  "抄底",
+  "解套",
+  "回血",
+  "拉低成本",
+  "不服",
+  "再来一把"
+ ],
+ "LOTTERY_STOCK": [
+  "涨停",
+  "打板",
+  "追涨",
+  "妖股",
+  "题材股",
+  "概念股",
+  "龙头股",
+  "连板",
+  "涨停板",
+  "低价股",
+  "仙股"
+ ],
+ "CONFUCIAN_RESTRAINT": [
+  "稳健",
+  "保守",
+  "止损",
+  "分散",
+  "长期持有",
+  "价值投资",
+  "理性",
+  "勤俭",
+  "节制",
+  "风险控制",
+  "定投"
+ ]
+};
+const GAMB = ["GAMBLING_CORE","SPECULATION","LOSS_CHASING","LOTTERY_STOCK"];
+const NICE = {GAMBLING_CORE:"gambling", SPECULATION:"all-in / jackpot",
+              LOSS_CHASING:"loss-chasing", LOTTERY_STOCK:"lottery-stock",
+              CONFUCIAN_RESTRAINT:"restraint"};
+// longest-first so 涨停板 wins over 涨停
+const TERMS = [];
+for (const [cat, arr] of Object.entries(LEXICON))
+  for (const t of arr) TERMS.push([t, cat]);
+TERMS.sort((a,b)=>b[0].length-a[0].length);
+
+function setT(t){ document.getElementById('inp').value=t; analyze(); }
+
+function analyze(){
+  const text = document.getElementById('inp').value;
+  let html = "", i = 0, hits = [];
+  outer: while (i < text.length){
+    for (const [term, cat] of TERMS){
+      if (text.startsWith(term, i)){
+        const cls = GAMB.includes(cat) ? "g" : "r";
+        html += '<span class="'+cls+'" title="'+NICE[cat]+'">'+term+'</span>';
+        hits.push([term, cat]);
+        i += term.length; continue outer;
+      }
+    }
+    html += text[i].replace('<','&lt;'); i++;
+  }
+  const g = hits.filter(h=>GAMB.includes(h[1])).length;
+  const r = hits.length - g;
+  const chars = text.replace(/\s/g,'').length || 1;
+  const net = (100*(g-r)/chars);
+  const el = s => document.getElementById(s);
+  el('out').style.display = 'block';
+  el('rendered').innerHTML = html;
+  el('score').textContent = "net score " + (net>0?"+":"") + net.toFixed(1);
+  el('score').className = (net>0.01?"pos":net<-0.01?"neg":"");
+  el('detail').textContent = g+" gambling marker(s), "+r+" restraint marker(s), "
+      + chars + " characters — " + (net>0.01 ? "gambling-dominated discourse"
+      : net<-0.01 ? "prudence-dominated discourse" : "neutral");
+  el('tags').innerHTML = hits.map(h=>'<span>'+h[0]+' · '+NICE[h[1]]+'</span>').join('');
+}
+analyze();
+</script>
+</body>
+</html>
