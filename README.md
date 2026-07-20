@@ -1,3 +1,5 @@
+# cn-gambling-discourse
+
 [![tests](https://github.com/egoriye/cn-gambling-discourse/actions/workflows/ci.yml/badge.svg)](https://github.com/egoriye/cn-gambling-discourse/actions)
 
 **A tool for measuring the density of gambling *discourse* in Chinese investor texts — and an explicit account of why that is not the same as measuring how gambling-prone the writers are.**
