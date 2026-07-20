@@ -1,5 +1,8 @@
 """Pilot: score two public Guba sample corpora (IVTz/GubaScraper).
 
+Reports the gambling tier and the trading-mechanics tier separately, since
+the point of the exercise is that they behave very differently.
+
 Run: python scripts/pilot_analysis.py  (downloads data on first run)
 """
 
@@ -42,47 +45,43 @@ def load_corpora() -> dict[str, list[str]]:
     with open(os.path.join(DATA_DIR, "comments.json"), encoding="utf-8") as f:
         posts = json.load(f)
     titles = [p["post_title"] for p in posts if p.get("post_title")]
-
     with open(os.path.join(DATA_DIR, "user_comments.csv"),
               encoding="utf-8-sig", newline="") as f:
         rows = list(csv.DictReader(f))
     replies = [r["reply_text"] for r in rows if r.get("reply_text", "").strip()]
-
     # drop exact duplicates (reposted spam)
     return {
         "titles_600519_2001_2012": sorted(set(titles)),
-        "replies_300343_2022": sorted(set(replies)),
+        "replies_300343_2015_2022": sorted(set(replies)),
     }
 
 
 def analyze(name: str, docs: list[str]) -> None:
-    results = [score_text(t) for t in docs]
-    n = len(results)
-    total_tokens = sum(r.n_tokens for r in results)
-    gamb_docs = sum(1 for r in results if r.gambling_hits > 0)
-    restr_docs = sum(1 for r in results if r.restraint_hits > 0)
-    gamb_hits = sum(r.gambling_hits for r in results)
-    restr_hits = sum(r.restraint_hits for r in results)
+    res = [score_text(d) for d in docs]
+    n = len(res)
+    tokens = sum(r.n_tokens for r in res)
     terms: Counter = Counter()
-    cats: Counter = Counter()
-    for r in results:
+    for r in res:
         terms.update(r.hits)
-        cats.update(r.category_counts)
 
-    print(f"\n## {name}")
-    print(f"documents (deduplicated): {n}; tokens: {total_tokens}")
-    print(f"docs with >=1 gambling marker:  {gamb_docs} ({100*gamb_docs/n:.1f}%)")
-    print(f"docs with >=1 restraint marker: {restr_docs} ({100*restr_docs/n:.1f}%)")
-    print(f"gambling density  /100 tokens: {100*gamb_hits/total_tokens:.2f}")
-    print(f"restraint density /100 tokens: {100*restr_hits/total_tokens:.2f}")
-    print(f"category counts: {dict(cats.most_common())}")
-    print(f"top terms: {terms.most_common(10)}")
+    def tier(label: str, doc_pred, hit_sum: int) -> None:
+        d = sum(1 for r in res if doc_pred(r))
+        print(f"  {label:<22} {d:>4} docs ({100*d/n:>4.1f}%)  "
+              f"{hit_sum:>3} hits  density {100*hit_sum/tokens:.3f}")
+
+    print(f"\n## {name}: {n} docs, {tokens} tokens")
+    tier("gambling (marked)", lambda r: r.gambling_hits > 0,
+         sum(r.gambling_hits for r in res))
+    tier("trading mechanics", lambda r: r.mechanics_hits > 0,
+         sum(r.mechanics_hits for r in res))
+    tier("restraint", lambda r: r.restraint_hits > 0,
+         sum(r.restraint_hits for r in res))
+    print(f"  top terms: {terms.most_common(8)}")
 
 
 def main() -> None:
     ensure_data()
-    corpora = load_corpora()
-    for name, docs in corpora.items():
+    for name, docs in load_corpora().items():
         analyze(name, docs)
 
 
