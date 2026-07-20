@@ -1,107 +1,64 @@
-# cn-gambling-discourse
-
 [![tests](https://github.com/egoriye/cn-gambling-discourse/actions/workflows/ci.yml/badge.svg)](https://github.com/egoriye/cn-gambling-discourse/actions)
 
-**A measurement toolkit for gambling discourse in Chinese retail-investor texts: seed lexicon, negation-aware scoring, weakly-supervised classifier, daily Gambling Discourse Index (GDI).**
+**A tool for measuring the density of gambling *discourse* in Chinese investor texts — and an explicit account of why that is not the same as measuring how gambling-prone the writers are.**
 
-A lightweight NLP toolkit that measures the density of gambling-related vocabulary in Chinese-language financial texts (stock-forum posts, investor comments, news). It operationalises findings from behavioural-finance research on the Chinese stock market — lottery-like stock preference (the MAX anomaly), the *yi xiao bo da* (以小博大, "small stake, big win") logic, and loss-chasing behaviour — as a reproducible text-analysis pipeline.
+The toolkit counts gambling-register vocabulary in Chinese-language financial texts (stock-forum posts, comments, news). It grew out of a study of the historical gambling culture of China as a Williamson level-1 informal institution and its reproduction in contemporary financial behaviour. The central design commitment is honesty about what a word count can and cannot support.
 
-The project grew out of an interdisciplinary study of the historical gambling culture of China as a Williamson level-1 informal institution and its reproduction in the financial behaviour of the contemporary PRC population.
+## What this measures — and what it does not
 
-## Why
+This tool measures a property of **text**: how much gambling-register vocabulary a document contains. It does **not** measure a property of **people**: how gambling-prone the author is. Three gaps separate the two, and none is crossed by counting words:
 
-Empirical work on gambling culture and Chinese stock-market behaviour measures
-regional gambling propensity through lottery sales — a coarse, province-level,
-low-frequency proxy. This toolkit provides a *text-based* alternative in the
-tradition of dictionary-derived indices in economics and finance (cf. the
-Economic Policy Uncertainty index of Baker–Bloom–Davis and the
-Loughran–McDonald financial sentiment dictionary): a transparent frequency
-measure computable per stock, per day, or per user.
+1. **Language ≠ speaker.** Chinese is rich in gambling-derived idiom (黑马 "dark horse", 井喷 "gusher", 一夜暴富 "rich overnight"). A writer may use more of it simply by writing idiomatic Chinese, not by being more of a gambler. Higher density can mean a richer gambling phraseology in the *language*, not a more gambling-prone *author*.
+2. **Register ≠ disposition.** Even community slang (the Chinese analogue of WSB's *YOLO*, *diamond hands*) shows that a writer adopts a register. Register is a performance; an ironic analyst can write "YOLO". Talking like a gambler is not being one.
+3. **Speech ≠ behaviour.** A writer sincerely gambling in speech need not trade that way. The crash-risk outcomes the underlying theory cares about are behavioural, not lexical.
+
+Accordingly the honest name for the output is **gambling-discourse density**, not "gambling propensity". The tool is the first link in a chain, not the whole chain. See [RESULTS.md](RESULTS.md) for what the pilot does and does not show.
+
+## The tiering, and why it matters
+
+A dictionary of "gambling-related vocabulary" applied to a stock forum mostly finds *trading* vocabulary. 涨停 ("limit-up"), 满仓 ("full position") and 抄底 ("buy the dip") are said by prudent and reckless investors alike — they report the topic, not the writer. The lexicon is therefore tiered, and only disposition-marking tiers count toward the score:
+
+| Tier | Examples | Counted? |
+|---|---|---|
+| `GAMBLING_EXPLICIT` | 赌博 gambling, 彩票 lottery ticket, 开奖 prize draw, 麻将 mahjong | yes |
+| `GAMBLING_FRAMING` | 以小博大 small stake big win, 梭哈 all-in, 一夜暴富 rich overnight | yes |
+| `TRADING_MECHANICS` | 涨停 limit-up, 满仓 full position, 抄底 buy the dip | no — topic control |
+| `RESTRAINT` | 稳健 prudent, 止损 stop-loss, 价值投资 value investing | counter-register |
+
+On the pilot corpora, an untiered lexicon reports gambling discourse in 7.1% of documents; separating the tiers drops it to 0.0% — every hit was trading vocabulary. That contamination result is the point: any text measure of gambling must clear this bar before its numbers mean anything, and even then only measures discourse.
+
+Every term carries an English gloss (`GLOSSES`), so output is readable without Chinese.
 
 ## What it does
 
-- Segments Chinese text with [jieba](https://github.com/fxsjy/jieba), keeping multi-character lexicon terms intact.
-- Matches tokens against a five-category lexicon:
-
-| Category | Examples | Interpretation |
-|---|---|---|
-| `GAMBLING_CORE` | 赌博, 彩票, 快乐8, 麻将 | explicit gambling / lottery vocabulary |
-| `SPECULATION` | 以小博大, 梭哈, 全仓, 一夜暴富 | all-in, jackpot-seeking trading slang |
-| `LOSS_CHASING` | 回本, 翻身, 补仓, 再来一把 | "win it back" vocabulary |
-| `LOTTERY_STOCK` | 涨停, 打板, 妖股, 连板 | lottery-like stock discourse |
-| `CONFUCIAN_RESTRAINT` | 稳健, 止损, 价值投资, 定投 | prudence counter-institution vocabulary |
-
-- Applies a negation window (不 / 没 / 别 / 勿 and derivatives), so 不加杠杆
-  ("no leverage") is not counted as gambling discourse.
-- Computes per-document scores: gambling-marker density and restraint-marker density (per 100 tokens), and a **net score** capturing the opposition between the gambling institution and its Confucian counter-institution.
-
-## Beyond the lexicon: weak supervision
-
-`gambling_nlp.classifier` uses the lexicon as a *weak labeller* and trains a
-character-n-gram TF-IDF + logistic-regression model on those labels
-(5-fold CV ROC-AUC **0.867** on the pilot corpora). The trained model flags
-gambling-toned documents containing **none** of the seed terms — e.g.
-pump-style posts built on 暴涨 / 井喷 / 翻番 vocabulary — turning the static
-dictionary into an expandable annotation loop (model-ranked candidates →
-human review → lexicon v2).
-
-## Daily index
-
-`scripts/build_index.py` aggregates scores into a daily **Gambling Discourse
-Index** (gambling hits per 100 tokens per day) — a time series that can be
-laid alongside price and volume data.
-
-## Live demo
-
-Try the browser demo (paste any Chinese text, see highlighted markers and the score):
-**https://egoriye.github.io/cn-gambling-discourse/**
+- Segments Chinese text with [jieba](https://github.com/fxsjy/jieba), keeping multi-character terms intact.
+- Scores each document as marker density per 100 tokens, per tier, with a negation window (不加杠杆 "no leverage" is not counted).
+- `gambling_nlp.classifier` uses a tier as a weak labeller to train a char-n-gram classifier, ranks documents with no seed term as expansion candidates, and reports rather than trains when a tier is too sparse.
+- `scripts/build_index.py` aggregates a daily discourse index for timestamped corpora.
 
 ## Quick start
 
 ```bash
-pip install -e .
+pip install -e ".[dev]"
 python -m gambling_nlp.cli data/demo_posts.csv
+python -m pytest tests/
 ```
 
-Or from Python:
+Or in the browser: **https://egoriye.github.io/cn-gambling-discourse/**
 
-```python
-from gambling_nlp import score_text
+## What the tool enables (research programme)
 
-res = score_text("满仓梭哈这只妖股，以小博大，赌一把！")
-print(res.gambling_score, res.net_score, dict(res.hits))
-```
+Because it isolates a discourse measure, the tool supports designs that begin to close the three gaps — none claimed here, all left as future work:
 
-Input for the CLI is any UTF-8 CSV with a text column (`--text-column`, default `text`). The output CSV appends token counts, category hits, densities, and the matched terms for full transparency.
-
-`data/demo_posts.csv` contains **synthetic demo sentences** for testing the pipeline; it is not research data.
-
-## Applications
-
-- Constructing a text-based regional or temporal gambling-propensity index from stock-forum corpora (e.g., Eastmoney Guba), as a complement to the lottery-sales proxy widely used in the empirical literature.
-- Filtering and annotating corpora for downstream supervised classification of speculative vs. prudent investor discourse.
+1. **Baseline-corrected density** (gap 1): compare gambling-idiom density in investor text against its base rate in general Chinese, isolating the writer's choice from the language's stock of idiom.
+2. **Cross-volatility** (toward gap 3): discourse density across boards of high- vs low-volatility stocks, holding genre fixed.
+3. **Cross-register / cross-language** (gap 2): retail forum vs formal news vs a matched English lexicon — is gambling framing specific to a community, a genre, or a language?
+4. **Applied**: crypto-forum and financial-marketing text, where the same measurement problem recurs.
 
 ## Limitations
 
-- Pure lexicon matching: negation (不加杠杆 "no leverage") is not handled and inflates scores; a rule-based negation window or a supervised classifier is the natural next step.
-- The lexicon reflects mainland simplified-Chinese investor slang of the 2010s–2020s; coverage of Cantonese and traditional-script communities is limited.
-- Scores are descriptive densities, not calibrated probabilities.
-
-## Pilot results
-
-See [RESULTS.md](RESULTS.md) — the pipeline applied to two public Guba sample corpora (~2,100 real documents), reproducible via `python scripts/pilot_analysis.py`.
-
-## Tests
-
-```bash
-pip install -e ".[dev]"
-python -m pytest tests/
-```
+Tier assignment is a judgement call, versioned so the line can be moved and its effect measured. Matching does not resolve irony, quotation, or reported speech. Classifier AUC is against lexicon-derived labels (internal consistency, not accuracy vs human judgement). Scores are descriptive densities, not calibrated probabilities, and never a measure of persons.
 
 ## License
 
 MIT
-
-## Citation
-
-If you use this toolkit, please cite the accompanying preprint (link to be added upon posting).
