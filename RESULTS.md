@@ -1,56 +1,36 @@
 # Pilot results
 
-Two public Eastmoney Guba sample corpora from [IVTz/GubaScraper](https://github.com/IVTz/GubaScraper),
-scored with `gambling_nlp` v0.2.0, exact duplicates removed.
-Reproduce: `python scripts/pilot_analysis.py`.
+Two publicly available sample corpora of Eastmoney Guba texts, distributed with the scraper [IVTz/GubaScraper](https://github.com/IVTz/GubaScraper), scored with `gambling_nlp` v0.2.0 after removal of exact duplicates. To reproduce: `python scripts/pilot_analysis.py`.
 
 | Corpus | Docs | Tokens | Gambling-marked | Trading mechanics | Restraint |
 |---|---|---|---|---|---|
-| Titles, 600519 (Kweichow Moutai), 2001–2012 | 970 | 11,814 | **0 (0.0%)** | 68 (7.0%) | 3 (0.3%) |
-| Replies, 300343, 2015–2022 | 1,161 | 12,399 | **4 (0.3%)** | 27 (2.3%) | 3 (0.3%) |
+| Titles, board 600519 (Kweichow Moutai), 2001–2012 | 970 | 11,814 | 0 (0.0%) | 68 (7.0%) | 3 (0.3%) |
+| Replies, board 300343, 2015–2022 | 1,161 | 12,399 | 4 (0.3%) | 27 (2.3%) | 3 (0.3%) |
 
-## What this shows
+## Effect of the tier separation
 
-**1. The contamination result.** An untiered lexicon reports gambling discourse in
-7.1% of the title corpus. Separating disposition-marking vocabulary from trading
-mechanics drops this to 0.0%: every apparent hit was 涨停 (34), 全仓 (25), 满仓 (6) —
-limit-ups and position sizes. A dictionary that counts these measures what a forum
-is *about*, not how its users think.
+A lexicon that counts trading vocabulary as gambling markers flags 7.1% of the title corpus. With the TRADING_MECHANICS tier excluded from the score, the gambling tiers flag 0.0%. All apparent hits in the title corpus were 涨停 (34), 全仓 (25), 满仓 (6) and similar terms. The corresponding figures for the reply corpus are 2.8% and 0.3%.
 
-**2. The seed lexicon does not fit forum text.** The gambling tier is built from the
-vocabulary of the cultural-historical record (赌博, 彩票, 麻将, 以小博大). Investors do
-not write in that register; they write 暴涨 ("surge"), 井喷 ("gusher"), 黑马 ("dark
-horse"). Overtly gambling-marked discourse appears in 4 of 2,131 documents (0.2%),
-and of 8 occurrences of 开奖 ("prize draw"), 6 are one copy-pasted message — so the
-most quotable stock-as-lottery instance is boilerplate.
+The untiered version also produces a roughly 20:1 ratio of gambling to restraint vocabulary. Since the gambling side of that ratio consists of trading terms, the ratio reflects the subject matter of a stock forum. A gambling measure that has cleared this problem still remains a measure of text; see "Scope of the measure" in the README.
 
-## What this does NOT show
+## Fit between the seed lexicon and forum text
 
-This pilot does **not** show that Chinese investors are not gambling-prone, nor that
-distinguishing vocabulary does not exist. It shows three narrower things:
+The gambling tiers draw on the vocabulary of the historical record (赌博, 彩票, 麻将, 以小博大). This vocabulary is nearly absent from the pilot corpora: 4 documents out of 2,131 contain a gambling-tier term. Of 8 raw occurrences of 开奖 ("prize draw"), 6 are the same message reposted verbatim (马上开奖，祝您好运 with emoji), so the clearest example of lottery framing in this data is boilerplate rather than spontaneous usage.
 
-- historical gambling vocabulary is nearly absent from these forums;
-- naively widening the lexicon to fit (adding 牛股, 黑马, 暴涨) captures ordinary
-  business jargon, not disposition — the same topic-vs-disposition error one tier down;
-- the two corpora chosen are close to worst-case for the question: 600519 is China's
-  archetypal value stock (long-term holders), and the titles predate modern forum
-  slang.
+Widening the lexicon with frequent expectation vocabulary (牛股 "bull stock", 黑马 "dark horse", 暴涨 "surge") raises the counts but matches ordinary business jargon, which reintroduces the same topic problem at a different set of terms.
 
-Above all, **even a non-zero, well-behaved density would measure discourse, not
-persons.** Three gaps stand between the two — language vs speaker, register vs
-disposition, speech vs behaviour (see README and the preprint) — and none is crossed
-by counting words. These numbers describe text.
+The corpora themselves are unfavourable for the question. Board 600519 belongs to a stock held predominantly by long-term investors, and the title corpus predates current forum slang.
 
-## Where the register actually lives (lead for v2)
+## Classifier
 
-Trained on the mechanics tier (95 positives, 5-fold CV ROC-AUC 0.865), the classifier
-ranks zero-seed-term documents; the top candidates are promotional — 要涨3倍 ("will
-triple"), 翻番利器 ("doubling weapon"), 井喷 ("gusher"), 暴涨. In these corpora the
-jackpot register is carried by pump vocabulary, not by the classical gambling lexicon.
-This is a lead for lexicon iteration, not evidence about investors.
+Weak supervision on the gambling tiers is not possible on this data: 4 positive documents. The module reports this instead of fitting a model.
+
+Trained on the TRADING_MECHANICS tier (95 positives), the classifier reaches a 5-fold cross-validated ROC-AUC of 0.865 against the weak labels. Among documents with no seed term, the highest-scored are promotional: 要涨3倍 ("will triple"), 翻番利器 ("doubling weapon"), 井喷 ("gusher"), 暴涨. These are candidate terms for a future lexicon revision. The AUC is measured against lexicon-derived labels and does not indicate accuracy relative to human judgement.
+
+## Index
+
+`scripts/build_index.py` produces `data/pilot/daily_gdi.csv`: 361 daily observations (2015–2022) of marker densities for board 300343.
 
 ## Caveats
 
-Small samples; two boards; different periods and genres; a blue chip and a small cap.
-Not comparable to each other; no causal claim; nothing here generalises to Chinese
-investors.
+Small samples; two boards; different periods and genres (titles and replies); one blue chip and one small cap. The two corpora are not comparable to each other. The absence of gambling-tier vocabulary is a statement about these corpora and this seed lexicon and does not generalise to Chinese investors.
