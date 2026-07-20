@@ -1,4 +1,4 @@
-"""Lexicon-based gambling-propensity scoring for Chinese texts."""
+"""Tiered lexicon scoring for Chinese investor texts."""
 
 from __future__ import annotations
 
@@ -7,7 +7,12 @@ from dataclasses import dataclass, field
 
 import jieba
 
-from .lexicon import LEXICON, GAMBLING_CATEGORIES, RESTRAINT_CATEGORY, all_terms
+from .lexicon import (
+    GAMBLING_CATEGORIES,
+    MECHANICS_CATEGORY,
+    RESTRAINT_CATEGORY,
+    all_terms,
+)
 
 for _term in all_terms():
     jieba.add_word(_term)
@@ -23,31 +28,38 @@ class ScoreResult:
     """Result of scoring a single document."""
 
     n_tokens: int
-    hits: Counter = field(default_factory=Counter)          # term -> count
-    category_counts: Counter = field(default_factory=Counter)  # category -> count
-    negated: Counter = field(default_factory=Counter)       # negated term -> count
+    hits: Counter = field(default_factory=Counter)
+    category_counts: Counter = field(default_factory=Counter)
+    negated: Counter = field(default_factory=Counter)
 
     @property
     def gambling_hits(self) -> int:
+        """Overtly gambling-marked hits; excludes trading mechanics."""
         return sum(self.category_counts[c] for c in GAMBLING_CATEGORIES)
+
+    @property
+    def mechanics_hits(self) -> int:
+        return self.category_counts[MECHANICS_CATEGORY]
 
     @property
     def restraint_hits(self) -> int:
         return self.category_counts[RESTRAINT_CATEGORY]
 
+    def _density(self, n: int) -> float:
+        return 0.0 if self.n_tokens == 0 else 100.0 * n / self.n_tokens
+
     @property
     def gambling_score(self) -> float:
-        """Gambling-marker density per 100 tokens."""
-        if self.n_tokens == 0:
-            return 0.0
-        return 100.0 * self.gambling_hits / self.n_tokens
+        return self._density(self.gambling_hits)
+
+    @property
+    def mechanics_score(self) -> float:
+        """Trading-topic density; a genre control, not a gambling measure."""
+        return self._density(self.mechanics_hits)
 
     @property
     def restraint_score(self) -> float:
-        """Restraint-marker density per 100 tokens."""
-        if self.n_tokens == 0:
-            return 0.0
-        return 100.0 * self.restraint_hits / self.n_tokens
+        return self._density(self.restraint_hits)
 
     @property
     def net_score(self) -> float:
@@ -61,7 +73,7 @@ def tokenize(text: str) -> list[str]:
 
 
 def score_text(text: str) -> ScoreResult:
-    """Score a single document against the lexicon."""
+    """Score a single document against the tiered lexicon."""
     tokens = tokenize(text)
     result = ScoreResult(n_tokens=len(tokens))
     for i, token in enumerate(tokens):
