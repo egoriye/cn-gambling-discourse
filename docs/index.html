@@ -7,48 +7,69 @@
 <style>
 body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; font-size: 15px;
        line-height: 1.5; color: #000; background: #fff;
-       max-width: 40em; margin: 2em auto; padding: 0 1em; }
+       max-width: 44em; margin: 2em auto; padding: 0 1em; }
 h1 { font-size: 1.3em; margin: 0 0 .3em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 .3em; }
 p { margin: .6em 0; }
-textarea { width: 100%; height: 6em; font: inherit; padding: .4em;
-           border: 1px solid #999; }
-button { font: inherit; padding: .3em 1em; margin-top: .5em; }
-hr { border: none; border-top: 1px solid #ccc; margin: 1em 0; }
+textarea { width: 100%; height: 5em; font: inherit; padding: .4em; border: 1px solid #999; }
+button { font: inherit; padding: .3em 1em; }
+hr { border: none; border-top: 1px solid #ccc; margin: 1.2em 0; }
+table { border-collapse: collapse; font-size: .9em; margin: .5em 0; }
+td, th { border: 1px solid #ccc; padding: .2em .5em; text-align: left; }
 .g { background: #ffdddd; }
+.m { background: #eeeeee; }
 .r { background: #ddffdd; }
 .pos { color: #c00; }
 .neg { color: #060; }
 #score { font-size: 1.3em; font-weight: bold; margin: .4em 0; }
 #detail, .note { color: #555; font-size: .9em; }
-#tags { font-size: .9em; }
-#tags span { margin-right: 1em; white-space: nowrap; }
-#out { display: none; }
+#out, #bout { display: none; }
+ul { margin: .4em 0; padding-left: 1.2em; }
+li { margin: .15em 0; }
 </style>
 </head>
 <body>
 
 <h1>Gambling Discourse Analyzer</h1>
 
-<p>Detects gambling-culture vocabulary in Chinese retail-investor texts.
+<p>Measures gambling-culture vocabulary in Chinese retail-investor texts.
 Browser demo of <a href="https://github.com/egoriye/cn-gambling-discourse">cn-gambling-discourse</a>.
-Substring matching only; the Python package adds jieba segmentation and negation handling.</p>
+Only disposition-marking vocabulary counts towards the score; standard trading vocabulary (grey) is tracked but excluded. Substring matching only; the Python package adds jieba segmentation and negation handling.
+No text leaves your browser.</p>
+
+<h2>Score one text</h2>
 
 <p><textarea id="inp">&#20111;&#40635;&#20102;&#65292;&#26126;&#22825;&#28385;&#20179;&#25220;&#24213;&#65292;&#19968;&#23450;&#35201;&#22238;&#26412;&#65281;&#36825;&#21482;&#22934;&#32929;&#35201;&#28072;&#20572;&#65292;&#20197;&#23567;&#21338;&#22823;&#65292;&#36172;&#19968;&#25226;&#65281;</textarea></p>
 
-<p><button onclick="analyze()">Analyze</button></p>
-
-<p class="note">Examples:
+<p><button onclick="analyze()">Analyze</button>
+<span class="note">&nbsp;Examples:
 <a href="#" onclick="setT('&#20170;&#22825;&#26797;&#21704;&#20102;&#36825;&#21482;&#22934;&#32929;&#65292;&#19968;&#22812;&#26292;&#23500;&#23601;&#30475;&#26126;&#22825;&#65292;&#20840;&#20179;&#24178;&#65281;');return false">speculator</a> |
 <a href="#" onclick="setT('&#22362;&#25345;&#20215;&#20540;&#25237;&#36164;&#65292;&#38271;&#26399;&#25345;&#26377;&#65292;&#35774;&#22909;&#27490;&#25439;&#65292;&#20998;&#25955;&#37197;&#32622;&#65292;&#31283;&#20581;&#29702;&#24615;&#12290;');return false">value investor</a> |
 <a href="#" onclick="setT('&#39532;&#19978;&#24320;&#22870;&#65292;&#31069;&#24744;&#22909;&#36816;&#65281;');return false">lottery draw</a>
-</p>
+</span></p>
 
 <div id="out">
-<hr>
 <p id="rendered"></p>
 <p id="score"></p>
 <p id="detail"></p>
-<p id="tags"></p>
+<div id="tags"></div>
+</div>
+
+<hr>
+
+<h2>Score a CSV file</h2>
+
+<p class="note">Any UTF-8 CSV with a column of texts. Each row is scored and the
+table is returned with the scores appended. Processing runs locally in the browser.</p>
+
+<p><input type="file" id="csv" accept=".csv,.txt" onchange="loadCsv()"></p>
+<p id="colpick" style="display:none">Text column:
+  <select id="col"></select>
+  <button onclick="runBatch()">Score rows</button></p>
+
+<div id="bout">
+  <p id="bsummary"></p>
+  <p><a id="dl" href="#" download="scored.csv">Download scored CSV</a></p>
 </div>
 
 <hr>
@@ -59,109 +80,23 @@ classifier (CV AUC 0.867), daily index &mdash; in the
 <a href="https://github.com/egoriye/cn-gambling-discourse">Python package</a>.</p>
 
 <script>
-
-const LEXICON = {
- "GAMBLING_CORE": [
-  "赌博",
-  "赌徒",
-  "赌局",
-  "赌注",
-  "博彩",
-  "彩票",
-  "中奖",
-  "开奖",
-  "赌一把",
-  "赌一波",
-  "押注",
-  "下注",
-  "买彩票",
-  "福利彩票",
-  "体育彩票",
-  "快乐8",
-  "麻将",
-  "打麻将",
-  "抽奖",
-  "六合彩",
-  "小赌怡情"
- ],
- "SPECULATION": [
-  "以小博大",
-  "梭哈",
-  "梭了",
-  "全仓",
-  "满仓",
-  "重仓",
-  "加杠杆",
-  "上杠杆",
-  "一夜暴富",
-  "暴富",
-  "翻倍",
-  "十倍股",
-  "搏一搏",
-  "富贵险中求",
-  "单车变摩托",
-  "赌性"
- ],
- "LOSS_CHASING": [
-  "回本",
-  "翻身",
-  "扳回",
-  "补仓",
-  "越跌越买",
-  "抄底",
-  "解套",
-  "回血",
-  "拉低成本",
-  "不服",
-  "再来一把"
- ],
- "LOTTERY_STOCK": [
-  "涨停",
-  "打板",
-  "追涨",
-  "妖股",
-  "题材股",
-  "概念股",
-  "龙头股",
-  "连板",
-  "涨停板",
-  "低价股",
-  "仙股"
- ],
- "CONFUCIAN_RESTRAINT": [
-  "稳健",
-  "保守",
-  "止损",
-  "分散",
-  "长期持有",
-  "价值投资",
-  "理性",
-  "勤俭",
-  "节制",
-  "风险控制",
-  "定投"
- ]
-};
-const GAMB = ["GAMBLING_CORE","SPECULATION","LOSS_CHASING","LOTTERY_STOCK"];
-const NICE = {GAMBLING_CORE:"gambling", SPECULATION:"all-in / jackpot",
-              LOSS_CHASING:"loss-chasing", LOTTERY_STOCK:"lottery-stock",
-              CONFUCIAN_RESTRAINT:"restraint"};
-// longest-first so 涨停板 wins over 涨停
+const LEXICON = {"GAMBLING_EXPLICIT": ["赌博", "赌徒", "赌局", "赌注", "博彩", "彩票", "中奖", "开奖", "赌一把", "赌一波", "押注", "下注", "买彩票", "福利彩票", "体育彩票", "快乐8", "麻将", "打麻将", "抽奖", "六合彩", "小赌怡情"], "GAMBLING_FRAMING": ["以小博大", "梭哈", "梭了", "一夜暴富", "暴富", "搏一搏", "富贵险中求", "单车变摩托", "赌性", "再来一把"], "TRADING_MECHANICS": ["涨停", "涨停板", "打板", "追涨", "连板", "妖股", "题材股", "概念股", "龙头股", "低价股", "仙股", "满仓", "全仓", "重仓", "加杠杆", "上杠杆", "翻倍", "十倍股", "抄底", "补仓", "解套", "回本", "翻身", "扳回", "回血", "拉低成本", "越跌越买"], "RESTRAINT": ["稳健", "保守", "止损", "分散", "长期持有", "价值投资", "理性", "勤俭", "节制", "风险控制", "定投"]};
+const GLOSSES = {"赌博": "gambling", "赌徒": "gambler", "赌局": "gambling game", "赌注": "stake", "博彩": "gaming/lottery", "彩票": "lottery ticket", "中奖": "win a prize", "开奖": "prize draw", "赌一把": "have a gamble", "赌一波": "take a gamble", "押注": "place a bet", "下注": "place a bet", "买彩票": "buy lottery tickets", "福利彩票": "welfare lottery", "体育彩票": "sports lottery", "快乐8": "Happy-8 (lottery game)", "麻将": "mahjong", "打麻将": "play mahjong", "抽奖": "lucky draw", "六合彩": "Mark Six lottery", "小赌怡情": "a small bet does no harm", "以小博大": "small stake, big win", "梭哈": "all-in (show hand)", "梭了": "went all-in", "一夜暴富": "rich overnight", "暴富": "get rich quick", "搏一搏": "take a shot", "富贵险中求": "fortune favours the bold", "单车变摩托": "bike into a motorbike (small win to big)", "赌性": "gambling instinct", "再来一把": "one more round", "涨停": "limit-up", "涨停板": "limit-up board", "打板": "chase the limit-up", "追涨": "chase the rally", "连板": "consecutive limit-ups", "妖股": "monster stock", "题材股": "theme stock", "概念股": "concept stock", "龙头股": "leading stock", "低价股": "low-priced stock", "仙股": "penny stock", "满仓": "fully invested", "全仓": "full position", "重仓": "heavy position", "加杠杆": "add leverage", "上杠杆": "use leverage", "翻倍": "double", "十倍股": "ten-bagger", "抄底": "buy the dip", "补仓": "average down", "解套": "get out of a losing position", "回本": "recover the principal", "翻身": "turn things around", "扳回": "win it back", "回血": "recover losses", "拉低成本": "lower the cost basis", "越跌越买": "buy more as it falls", "稳健": "prudent", "保守": "conservative", "止损": "stop-loss", "分散": "diversify", "长期持有": "hold long-term", "价值投资": "value investing", "理性": "rational", "勤俭": "thrifty", "节制": "moderation", "风险控制": "risk control", "定投": "regular investment plan"};
+const GAMB = ["GAMBLING_EXPLICIT","GAMBLING_FRAMING"];
+const NICE = {GAMBLING_EXPLICIT:"gambling", GAMBLING_FRAMING:"jackpot framing",
+              TRADING_MECHANICS:"trading mechanics (not counted)", RESTRAINT:"restraint"};
 const TERMS = [];
 for (const [cat, arr] of Object.entries(LEXICON))
   for (const t of arr) TERMS.push([t, cat]);
 TERMS.sort((a,b)=>b[0].length-a[0].length);
 
-function setT(t){ document.getElementById('inp').value=t; analyze(); }
-
-function analyze(){
-  const text = document.getElementById('inp').value;
-  let html = "", i = 0, hits = [];
+function match(text){
+  let i = 0, hits = [], html = "";
   outer: while (i < text.length){
     for (const [term, cat] of TERMS){
       if (text.startsWith(term, i)){
-        const cls = GAMB.includes(cat) ? "g" : "r";
-        html += '<span class="'+cls+'" title="'+NICE[cat]+'">'+term+'</span>';
+        const cls = GAMB.includes(cat) ? "g" : cat === "RESTRAINT" ? "r" : "m";
+        html += '<span class="'+cls+'" title="'+GLOSSES[term]+'">'+term+'</span>';
         hits.push([term, cat]);
         i += term.length; continue outer;
       }
@@ -169,19 +104,98 @@ function analyze(){
     html += text[i].replace('<','&lt;'); i++;
   }
   const g = hits.filter(h=>GAMB.includes(h[1])).length;
-  const r = hits.length - g;
-  const chars = text.replace(/\s/g,'').length || 1;
-  const net = (100*(g-r)/chars);
+  const r = hits.filter(h=>h[1]==="RESTRAINT").length;
+  const m = hits.filter(h=>h[1]==="TRADING_MECHANICS").length;
+  return { html, hits, g, r, m, chars: text.replace(/\s/g,'').length };
+}
+
+function setT(t){ document.getElementById('inp').value = t; analyze(); }
+
+function analyze(){
+  const text = document.getElementById('inp').value;
+  const m = match(text);
+  const net = 100 * (m.g - m.r) / (m.chars || 1);
   const el = s => document.getElementById(s);
   el('out').style.display = 'block';
-  el('rendered').innerHTML = html;
+  el('rendered').innerHTML = m.html;
   el('score').textContent = "net score " + (net>0?"+":"") + net.toFixed(1);
-  el('score').className = (net>0.01?"pos":net<-0.01?"neg":"");
-  el('detail').textContent = g+" gambling marker(s), "+r+" restraint marker(s), "
-      + chars + " characters — " + (net>0.01 ? "gambling-dominated discourse"
-      : net<-0.01 ? "prudence-dominated discourse" : "neutral");
-  el('tags').innerHTML = hits.map(h=>'<span>'+h[0]+' · '+NICE[h[1]]+'</span>').join('');
+  el('score').className = net>0.01 ? "pos" : net<-0.01 ? "neg" : "";
+  el('detail').textContent = m.g + " gambling marker(s), " + m.r + " restraint marker(s), "
+    + m.m + " trading-mechanics marker(s) — not counted — over " + m.chars + " characters";
+  el('tags').innerHTML = m.hits.length
+    ? '<ul>' + m.hits.map(h => '<li>' + h[0] + ' — ' + GLOSSES[h[0]]
+        + ' <span class="note">(' + NICE[h[1]] + ')</span></li>').join('') + '</ul>'
+    : '';
 }
+
+function parseCsv(text){
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){
+      if (c === '"' && text[i+1] === '"'){ cell += '"'; i++; }
+      else if (c === '"'){ q = false; }
+      else cell += c;
+    } else if (c === '"'){ q = true; }
+    else if (c === ','){ row.push(cell); cell = ""; }
+    else if (c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ""; }
+    else if (c !== '\r'){ cell += c; }
+  }
+  if (cell || row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r => r.length && r.some(x => x !== ""));
+}
+
+function csvCell(v){
+  v = String(v);
+  return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v;
+}
+
+let CSV = null;
+
+function loadCsv(){
+  const f = document.getElementById('csv').files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    CSV = parseCsv(rd.result);
+    const sel = document.getElementById('col');
+    sel.innerHTML = CSV[0].map((h,i) => '<option value="'+i+'">'+h+'</option>').join('');
+    const guess = CSV[0].findIndex(h => /text|content|reply|title|post|comment/i.test(h));
+    if (guess >= 0) sel.value = guess;
+    document.getElementById('colpick').style.display = 'block';
+    document.getElementById('bout').style.display = 'none';
+  };
+  rd.readAsText(f, 'utf-8');
+}
+
+function runBatch(){
+  if (!CSV) return;
+  const ci = +document.getElementById('col').value;
+  const head = CSV[0].concat(["chars","gambling_hits","mechanics_hits","restraint_hits","net_score","matched_terms"]);
+  const out = [head];
+  let tot = 0, totG = 0, totR = 0, withG = 0, withM = 0;
+  for (let i = 1; i < CSV.length; i++){
+    const m = match(CSV[i][ci] || "");
+    const net = 100 * (m.g - m.r) / (m.chars || 1);
+    out.push(CSV[i].concat([m.chars, m.g, m.m, m.r, net.toFixed(2),
+      m.hits.map(h=>h[0]).join(" ")]));
+    tot += m.chars; totG += m.g; totR += m.r;
+    if (m.g > 0) withG++; else if (m.m > 0) withM++;
+  }
+  const n = CSV.length - 1;
+  document.getElementById('bsummary').innerHTML =
+    '<table><tr><th>rows</th><th>chars</th><th>rows with a gambling marker</th><th>rows with mechanics only</th>'
+    + '<th>gambling density /100 chars</th><th>restraint density /100 chars</th></tr><tr>'
+    + '<td>' + n + '</td><td>' + tot + '</td>'
+    + '<td>' + withG + ' (' + (100*withG/n).toFixed(1) + '%)</td>'
+    + '<td>' + (100*totG/(tot||1)).toFixed(2) + '</td>'
+    + '<td>' + (100*totR/(tot||1)).toFixed(2) + '</td></tr></table>';
+  const csv = out.map(r => r.map(csvCell).join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob(["\ufeff" + csv], {type:"text/csv"}));
+  document.getElementById('dl').href = url;
+  document.getElementById('bout').style.display = 'block';
+}
+
 analyze();
 </script>
 </body>
