@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gambling-nlp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lexicon-based detection of gambling discourse in Chinese retail-investor texts"
 readme = "README.md"
 license = { text = "MIT" }
@@ -18,3 +18,4 @@ dev = ["pytest", "scikit-learn>=1.3"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
